@@ -167,10 +167,6 @@ public class Reader extends JFrame {
 
     // Обработка сообщений от сервера
     private void processServerMessage(String msg) {
-        // Пример простого протокола:
-        // Вопрос: QUESTION|<текст вопроса>|<вариант1>|<вариант2>|<вариант3>|<вариант4>
-        // Рейтинг: LEADERBOARD|место;имя;очки|место;имя;очки|...
-        // Ответ: ANSWER_RESULT|correct|<баллы> или ANSWER_RESULT|wrong|<баллы>
 
         if (msg.startsWith("QUESTION|")) {
             String[] parts = msg.split("\\|");
