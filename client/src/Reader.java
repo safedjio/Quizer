@@ -20,7 +20,6 @@ public class Reader extends JFrame {
     JTable leaderboardTable;
     DefaultTableModel leaderboardModel;
 
-    // Сетевые поля
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
@@ -83,7 +82,7 @@ public class Reader extends JFrame {
         flag3.addActionListener(e -> selectedAnswer = 3);
         flag4.addActionListener(e -> selectedAnswer = 4);
 
-        // Правая панель - таблица лидеров
+        // Правая панель
         JPanel rightPanel = new JPanel(new BorderLayout());
         rightPanel.setPreferredSize(new Dimension(265, 450));
 
@@ -103,10 +102,7 @@ public class Reader extends JFrame {
         add(leftPanel, BorderLayout.WEST);
         add(rightPanel, BorderLayout.EAST);
 
-        // Запрос имени пользователя
         userName = askUserName();
-
-        // Подключение к серверу и запуск слушателя сообщений
         connectToServer(serverIp, serverPort);
 
         setLocationRelativeTo(null);
@@ -127,7 +123,7 @@ public class Reader extends JFrame {
         String name = null;
 
         name = JOptionPane.showInputDialog(this, "Введите ваше имя:", "Приветствие", JOptionPane.PLAIN_MESSAGE);
-        if (name == null) { // пользователь нажал Отмена
+        if (name == null) {
             System.exit(0);
         }
 
@@ -140,10 +136,8 @@ public class Reader extends JFrame {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
             out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
 
-            // Отправляем имя пользователя серверу
             out.println("USERNAME:" + userName);
 
-            // Запускаем поток для чтения сообщений от сервера
             new Thread(() -> {
                 try {
                     String line;
@@ -165,7 +159,6 @@ public class Reader extends JFrame {
         }
     }
 
-    // Обработка сообщений от сервера
     private void processServerMessage(String msg) {
 
         if (msg.startsWith("QUESTION|")) {
@@ -210,7 +203,6 @@ public class Reader extends JFrame {
         }
     }
 
-    // Изменение текста в полях
     public void setMessage(int fieldNumber, String message) {
         switch (fieldNumber) {
             case 1: l1.setText(message); break;
@@ -223,19 +215,14 @@ public class Reader extends JFrame {
         b.setEnabled(true );
     }
 
-    // Обработка нажатия кнопки "Ответить"
     public class ButtonActionListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             if (selectedAnswer < 1 || selectedAnswer > 4) {
                 JOptionPane.showMessageDialog(Reader.this, "Пожалуйста, выберите ответ.", "Ошибка", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            // Отправляем ответ на сервер в формате: ANSWER|<номер варианта>
             out.println("ANSWER|" + selectedAnswer);
-            // Блокируем кнопку, чтобы не отправлять повторно до ответа сервера
             b.setEnabled(false);
         }
     }
-
-
 }

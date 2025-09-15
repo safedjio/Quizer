@@ -7,7 +7,6 @@ public class User {
         String serverIp = "127.0.0.1";
         int serverPort = 12345;
 
-
         Reader quiz = new Reader("Quiz", serverIp, serverPort);
         quiz.setVisible(true);
         quiz.setResizable(false);

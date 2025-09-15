@@ -3,7 +3,7 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-// Главный класс сервера
+
 public class QuizServer {
     private static final int PORT = 12345;
 
@@ -11,9 +11,8 @@ public class QuizServer {
     private final Set<ClientHandler> clients = ConcurrentHashMap.newKeySet();
 
     // Менеджер викторины: вопросы, ответы, рейтинг
-    private final QuizManager quizManager = new QuizManager();
+    private final QuizManager quizManager = new QuizManager("questions.txt");
 
-    // Для хранения ответов текущего раунда
     private final Map<ClientHandler, Integer> currentAnswers = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
@@ -37,7 +36,7 @@ public class QuizServer {
         }
     }
 
-    // Запускает новый раунд: очищает ответы и рассылает вопрос всем клиентам
+    // Запускает нового раунда
     public synchronized void startNewQuestionRound() {
         currentAnswers.clear();
         QuizQuestion q = quizManager.getCurrentQuestion();
@@ -51,7 +50,7 @@ public class QuizServer {
         System.out.println("Новый вопрос отправлен всем клиентам: " + q.getQuestion());
     }
 
-    // Отправить текущий вопрос конкретному клиенту
+    // Отправка текущего вопроса конкретному клиенту
     public synchronized void sendQuestion(ClientHandler client) {
         QuizQuestion q = quizManager.getCurrentQuestion();
         String msg = String.format("QUESTION|%s|%s|%s|%s|%s",
@@ -66,14 +65,12 @@ public class QuizServer {
     // Обработка ответа от клиента
     public synchronized void handleAnswer(ClientHandler client, int answer) {
         if (currentAnswers.containsKey(client)) {
-            // Клиент уже ответил на этот вопрос
             client.sendMessage("ERROR|Вы уже ответили на этот вопрос");
             return;
         }
         currentAnswers.put(client, answer);
         System.out.println("Ответ получен от " + client.getUserName() + ": " + answer);
 
-        // Если все клиенты ответили — обрабатываем ответы
         if (currentAnswers.size() == clients.size()) {
             processAnswers();
             quizManager.nextQuestion();
@@ -81,7 +78,6 @@ public class QuizServer {
         }
     }
 
-    // Обработка всех ответов текущего раунда
     private void processAnswers() {
         for (Map.Entry<ClientHandler, Integer> entry : currentAnswers.entrySet()) {
             ClientHandler client = entry.getKey();
@@ -96,20 +92,17 @@ public class QuizServer {
         broadcastLeaderboard();
     }
 
-    // Удалить клиента из списка (при отключении)
     public synchronized void removeClient(ClientHandler client) {
         clients.remove(client);
         currentAnswers.remove(client);
     }
 
-    // Отправить сообщение всем клиентам
     public void broadcast(String message) {
         for (ClientHandler client : clients) {
             client.sendMessage(message);
         }
     }
 
-    // Рассылка рейтинга всем клиентам
     public void broadcastLeaderboard() {
         List<LeaderboardEntry> leaderboard = quizManager.getLeaderboard();
         StringBuilder sb = new StringBuilder("LEADERBOARD");
@@ -158,13 +151,10 @@ class ClientHandler implements Runnable {
                 return;
             }
 
-            // Отправляем текущий вопрос сразу после входа
             server.sendQuestion(this);
 
-            // Отправляем текущий рейтинг
             server.broadcastLeaderboard();
 
-            // Обработка сообщений от клиента
             while ((line = in.readLine()) != null) {
                 if (line.startsWith("ANSWER|")) {
                     try {
@@ -197,14 +187,29 @@ class QuizManager {
     private final List<QuizQuestion> questions = new ArrayList<>();
     private int currentQuestionIndex = 0;
 
-    // Рейтинг: имя -> очки
     private final Map<String, Integer> scores = new ConcurrentHashMap<>();
 
-    public QuizManager() {
-        // Пример вопросов
-        questions.add(new QuizQuestion("Какой язык программирования используется?", new String[]{"Java", "Python", "C++", "JavaScript"}, 1));
-        questions.add(new QuizQuestion("Столица Франции?", new String[]{"Берлин", "Париж", "Лондон", "Мадрид"}, 2));
-        questions.add(new QuizQuestion("2 + 2 = ?", new String[]{"3", "4", "5", "6"}, 2));
+    public QuizManager(String questionsFilePath) {
+        loadQuestionsFromFile(questionsFilePath);
+    }
+
+    private void loadQuestionsFromFile(String filePath) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(filePath), "UTF-8"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String question = line.trim();
+                String[] options = new String[4];
+                for (int i = 0; i < 4; i++) {
+                    options[i] = br.readLine().trim();
+                }
+                String correctStr = br.readLine().trim();
+                int correctOption = Integer.parseInt(correctStr);
+                questions.add(new QuizQuestion(question, options, correctOption));
+            }
+        } catch (IOException | NumberFormatException e) {
+            System.err.println("Ошибка при загрузке вопросов: " + e.getMessage());
+
+        }
     }
 
     public QuizQuestion getCurrentQuestion() {
@@ -231,10 +236,11 @@ class QuizManager {
     public List<LeaderboardEntry> getLeaderboard() {
         List<LeaderboardEntry> list = new ArrayList<>();
         int place = 1;
-        scores.entrySet().stream()
+        for (Map.Entry<String, Integer> e : scores.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder()))
-                .forEach(e -> list.add(new LeaderboardEntry(place+1, e.getKey(), e.getValue())));
-
+                .toList()) {
+            list.add(new LeaderboardEntry(place++, e.getKey(), e.getValue()));
+        }
         return list;
     }
 }
